@@ -1,0 +1,20 @@
+# Patient Appointment Management System
+
+## Overview
+This Python script streamlines the process of handling patient appointments for doctors and healthcare professionals. It offers an intuitive and effective method for organizing, modifying, and reviewing appointments, while also preserving the data in a file for subsequent use.
+
+## Features
+- **Schedule Appointments**: Conveniently book new appointments for patients, specifying the date and time.
+- **Update Appointments**: Adjust the details of an appointment to accommodate any changes.
+- **Cancel Appointments**: Remove appointments from the schedule as needed.
+- **List Appointments**: Display all upcoming appointments in an organized list.
+- **Save Data**: Maintain a record of all appointment details in a file, ensuring easy retrieval.
+
+
+## Usage
+1. Obtain the script by cloning this repository or downloading the `appointment_manager.py` file.
+2. Launch your terminal or command prompt.
+3. Change to the directory containing `appointment_manager.py`.
+4. Execute the script with the command: `python appointment_manager.py`
+
+
