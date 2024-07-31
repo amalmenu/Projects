@@ -1,0 +1,56 @@
+Image Evaluation Programming : Brief Description
+This involves developing a Python-based GUI application designed to evaluate images for defects. The application will facilitate loading images, displaying both the original and evaluated images, zooming in on specific areas, and generating detailed reports on detected defects.
+
+Specifications:
+Optical Parameters:
+
+Object Distance: 55 mm
+Focal Length of Objective 1: 110 mm
+Focal Length of Objective 2: 55 mm
+Magnification Factor: 2
+Image Dimensions: 11648 x 8736 pixels
+Camera Sensor Dimensions: 43.8 mm x 32.9 mm
+GUI Components:
+File Path Input:
+
+Allows users to load images from the filesystem.
+Image Display:
+
+Displays the original image and the evaluated image with marked defects.
+Zoom Function:
+
+Enables zooming in on specific areas of the image for closer inspection.
+Report Generation:
+
+Provides detailed information on each detected defect, including size and area.
+Defect Evaluation:
+Physical Dimensions Calculation:
+
+Calculates the physical dimensions of defects using the provided parameters (object distance, focal lengths, magnification factor).
+Defect Detection:
+
+Uses advanced edge detection algorithms to identify defects in the images.
+Highlights each detected defect with a defect box for visualization.
+Defect Profiling:
+
+Analyzes intensity distribution for accurate defect profiling.
+Optionally detects and differentiates between types of defects (e.g., pits vs. protrusions).
+Defect Grouping:
+
+Intelligently groups nearby defects as a single defect to simplify the analysis process and provide an accurate representation of defect distribution.
+Software Architecture:
+Edge Detection Algorithms:
+
+Implements sophisticated edge detection techniques to identify defects.
+Intensity Distribution Analysis:
+
+Analyzes intensity variations within the image to profile and measure defects accurately.
+Concept Overview:
+Defect Detection and Visualization:
+
+The application uses advanced algorithms to detect and highlight defects in images.
+Each defect is visually marked, and its physical dimensions are calculated using the specified optical parameters.
+Defect Grouping:
+
+Multiple nearby defects are grouped as a single defect for simplified and accurate defect analysis.
+This application provides a comprehensive solution for defect evaluation in images, combining advanced image processing techniques with a user-friendly GUI for effective analysis and reporting.
