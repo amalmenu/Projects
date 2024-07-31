@@ -1,56 +1,244 @@
-Image Evaluation Programming : Brief Description
-This involves developing a Python-based GUI application designed to evaluate images for defects. The application will facilitate loading images, displaying both the original and evaluated images, zooming in on specific areas, and generating detailed reports on detected defects.
+import tkinter as tk
+from tkinter import filedialog
+from PIL import Image, ImageTk
+import cv2
+import numpy as np
 
-Specifications:
-Optical Parameters:
+Image.MAX_IMAGE_PIXELS = 933120000
+#Main Canvas
+class ImageCanvas(tk.Canvas):
+    def __init__(self, parent, bg, width, height):
+        super().__init__(parent, width=width, height=height, bg=bg)
+        self.image = None
+        self.photo = None
+        self.image_id = None
+        self.scale_factor = 1.0
+        self.scale_temp = 1.0
 
-Object Distance: 55 mm
-Focal Length of Objective 1: 110 mm
-Focal Length of Objective 2: 55 mm
-Magnification Factor: 2
-Image Dimensions: 11648 x 8736 pixels
-Camera Sensor Dimensions: 43.8 mm x 32.9 mm
-GUI Components:
-File Path Input:
+        self.bind("<Button-1>", self.start_pan)
+        self.bind("<B1-Motion>", self.do_pan)
+        self.bind("<MouseWheel>", self.do_zoom)
+        self.bind("<Double-1>", self.zoom_square)
 
-Allows users to load images from the filesystem.
-Image Display:
+    # Loads image into the widget
+    def load_image(self, image):
+        self.image = image
+        self.photo = ImageTk.PhotoImage(self.image)
 
-Displays the original image and the evaluated image with marked defects.
-Zoom Function:
+        if self.image_id:
+            self.delete(self.image_id)
 
-Enables zooming in on specific areas of the image for closer inspection.
-Report Generation:
+        self.image_id = self.create_image(0, 0, anchor=tk.NW, image=self.photo)
+        self.config(scrollregion=self.bbox(tk.ALL))
 
-Provides detailed information on each detected defect, including size and area.
-Defect Evaluation:
-Physical Dimensions Calculation:
+    def start_pan(self, event):
+        self.scan_mark(event.x, event.y)
 
-Calculates the physical dimensions of defects using the provided parameters (object distance, focal lengths, magnification factor).
-Defect Detection:
+    # Panning motion
+    def do_pan(self, event):
+        self.scan_dragto(event.x, event.y, gain=1)
 
-Uses advanced edge detection algorithms to identify defects in the images.
-Highlights each detected defect with a defect box for visualization.
-Defect Profiling:
+    # zooming in and out
+    def do_zoom(self, event):
+        scale = 1.1 if event.delta > 0 else 0.9
+        self.scale_temp *= scale
 
-Analyzes intensity distribution for accurate defect profiling.
-Optionally detects and differentiates between types of defects (e.g., pits vs. protrusions).
-Defect Grouping:
+        center_x = self.canvasx(self.winfo_width() / 2)
+        center_y = self.canvasy(self.winfo_height() / 2)
 
-Intelligently groups nearby defects as a single defect to simplify the analysis process and provide an accurate representation of defect distribution.
-Software Architecture:
-Edge Detection Algorithms:
+        self.scale("all", center_x, center_y, scale, scale)
+        self.config(scrollregion=self.bbox(tk.ALL))
 
-Implements sophisticated edge detection techniques to identify defects.
-Intensity Distribution Analysis:
+        self.update_image()
 
-Analyzes intensity variations within the image to profile and measure defects accurately.
-Concept Overview:
-Defect Detection and Visualization:
+    # Resizes and updates the image on the canvas after a zoom operation
+    def update_image(self):
+        new_width = int(self.image.width * self.scale_temp)
+        new_height = int(self.image.height * self.scale_temp)
+        resized_image = self.image.resize((new_width, new_height))
+        self.photo = ImageTk.PhotoImage(resized_image)
 
-The application uses advanced algorithms to detect and highlight defects in images.
-Each defect is visually marked, and its physical dimensions are calculated using the specified optical parameters.
-Defect Grouping:
+        self.delete(self.image_id)
+        center_x = self.canvasx(self.winfo_width() / 2)
+        center_y = self.canvasy(self.winfo_height() / 2)
+        self.image_id = self.create_image(center_x, center_y, anchor=tk.CENTER, image=self.photo)
+        self.config(scrollregion=self.bbox(tk.ALL))
+        self.scale_temp = 1.0
+    # zoom in on a square region around the cursor position
+    def zoom_square(self, event):
+        if self.image is None:
+            return
 
-Multiple nearby defects are grouped as a single defect for simplified and accurate defect analysis.
-This application provides a comprehensive solution for defect evaluation in images, combining advanced image processing techniques with a user-friendly GUI for effective analysis and reporting.
+        canvas_x = self.canvasx(event.x)
+        canvas_y = self.canvasy(event.y)
+
+        # Region to crop -----> zoomed image
+        crop_size = 400
+        half_crop_size = crop_size // 2
+        left = max(int(canvas_x - half_crop_size), 0)
+        top = max(int(canvas_y - half_crop_size), 0)
+        right = min(int(canvas_x + half_crop_size), self.image.width)
+        bottom = min(int(canvas_y + half_crop_size), self.image.height)
+        
+        # Resizing the cropped image
+        cropped_image = self.image.crop((left, top, right, bottom))
+        cropped_image = cropped_image.resize((600, 600), Image.Resampling.LANCZOS)
+
+        # Display the cropped image in a new window
+        new_window = tk.Toplevel(self)
+        new_window.title("Zoomed Region")
+        zoomed_photo = ImageTk.PhotoImage(cropped_image)
+        zoomed_label = tk.Label(new_window, image=zoomed_photo)
+        zoomed_label.image = zoomed_photo
+        zoomed_label.pack()
+
+
+class ImageProcessorApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Image Processor")
+        self.imageTK1 = None
+        self.imageTK2 = None
+
+        # Screen dimensions
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        root.geometry(f"{screen_width}x{screen_height}")
+
+        # Main frame
+        main_frame = tk.Frame(root)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Load button
+        self.load_button = tk.Button(main_frame, text="Load Image", command=self.load_image, width=30, height=2)
+        self.load_button.pack(pady=(20, 0))
+
+
+        images_frame = tk.Frame(main_frame)
+        images_frame.pack(padx=5, pady=10)
+
+        original_frame = tk.Frame(images_frame, bd=2, relief=tk.SUNKEN)
+        original_frame.grid(row=0, column=0, padx=5, pady=10)
+
+        # Lable on original image window
+        original_label = tk.Label(original_frame, text="Original Image")
+        original_label.pack()
+
+        # original image canvas
+        self.original_canvas = ImageCanvas(original_frame, bg='grey', width=screen_width // 2 - 20,
+                                           height=screen_height - 150)
+        self.original_canvas.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        processed_frame = tk.Frame(images_frame, bd=2, relief=tk.SUNKEN)
+        processed_frame.grid(row=0, column=1, padx=10, pady=10)
+
+        processed_label = tk.Label(processed_frame, text="Processed Image")
+        processed_label.pack()
+
+        self.processed_canvas = ImageCanvas(processed_frame, bg='grey', width=screen_width // 2 - 20,
+                                            height=screen_height - 150)
+        self.processed_canvas.pack(fill=tk.BOTH, expand=True)
+
+        self.original_image = None
+        self.processed_image = None
+
+    def load_image(self):
+        file_path = filedialog.askopenfilename()
+        if file_path:
+            self.original_image = Image.open(file_path)
+            self.show_original_image()
+
+            # Process the image
+            self.process_image(file_path)
+
+    # original image
+    def show_original_image(self):
+        self.display_image(self.original_image, self.original_canvas)
+
+    # processed image
+    def show_processed_image(self, processed_image):
+        self.processed_image = processed_image
+        self.display_image(self.processed_image, self.processed_canvas)
+
+    def display_image(self, image, canvas):
+        canvas.delete("all")
+        canvas.load_image(image=image)
+        canvas.config(scrollregion=canvas.bbox(tk.ALL))
+
+    def process_image(self, file_path):
+        # Read the image
+        image = cv2.imread(file_path)
+
+        # Convert the image to grayscale
+        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # Apply binary thresholding
+        _, binary_image = cv2.threshold(gray_image, 60, 255, cv2.THRESH_BINARY)
+
+        # Find contours in the binary image
+        contours, _ = cv2.findContours(binary_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Scale factor (calculated form image specification)
+        scale_factor = 1.88
+
+        # Define the minimum pixel count threshold
+        pixel_count_threshold = 20  # Adjust this value based on your needs
+
+        # Draw rotated rectangles around each contour and display their width and height in micrometers
+        for contour in contours:
+            # Calculate the pixel count for the current contour
+
+            pixel_count = cv2.contourArea(contour)
+
+            # Filter contours based on pixel count
+            if pixel_count > pixel_count_threshold:
+                # get the angled rectangle
+                rect = cv2.minAreaRect(contour)
+                box = cv2.boxPoints(rect)
+                ctr = np.array(box).reshape((-1,1,2)).astype(np.int32)
+
+                # Draw the angled rectangles on the image
+                cv2.drawContours(image, [ctr], 0, (0, 191, 255), 2, lineType=cv2.LINE_AA)
+
+
+                # width and height in micrometers
+                width, height = rect[1]
+                width_um = width * scale_factor
+                height_um = height * scale_factor
+
+                # Calculate width and height
+                dimensions_text = f'W:{width_um:.1f}um H:{height_um:.1f}um'
+
+                # Position to draw the text
+                text_position = (int(rect[0][0]), int(rect[0][1]))
+
+                # Adjust text positions to ensure visibility and no overlap with other rectangles
+                if text_position[1] < 10:  # If too close to the top edge
+                    text_position = (text_position[0], text_position[1] + 25)
+                elif text_position[1] > image.shape[0] - 30:  # If too close to the bottom edge
+                    text_position = (text_position[0], text_position[1] - 25)
+                if text_position[0] > image.shape[1] - 60:  # If too close to the right edge
+                    text_position = (text_position[0] - 60, text_position[1])
+
+                # Draw the combined width and height in micrometers on the image
+                cv2.putText(image, dimensions_text, text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.4,
+                            (0, 0, 255), 1, cv2.LINE_AA)
+
+        # Save the processed image
+        output_path = 'evaluated_image.jpg'
+        cv2.imwrite(output_path, image, [cv2.IMWRITE_JPEG_QUALITY, 100])
+
+
+        # Convert the processed image to RGB and display it
+        self.show_processed_image(Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB)))
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ImageProcessorApp(root)
+    root.mainloop()
+
+
+
+
+
